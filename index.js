@@ -2,191 +2,183 @@ require('dotenv').config();
 const express = require('express');
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
-// --- 1. KEEP-ALIVE SERVER (Render ke liye) ---
-const app = express();
-app.get('/', (req, res) => res.send('🔥 FF Tournament Bot is Running 24/7!'));
-app.listen(3000, () => console.log('✅ Keep-Alive Server Ready on Port 3000'));
+// --- 1. SETTINGS (Yahan Apni Details Daalein) ---
+const CONFIG = {
+    color: '#FFAA00', // Free Fire Orange
+    logo: 'https://dl.dir.freefiremobile.com/common/web_event/official2.0/images/share_img.jpg',
+    upi_id: 'your-upi-id@okbank', // Yahan apni UPI ID likh sakte hain
+    qr_image: 'https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg' // Yahan apna QR Code image link dalein
+};
 
-// --- 2. CONFIGURATION ---
+// --- 2. KEEP-ALIVE SERVER (Render ke liye) ---
+const app = express();
+app.get('/', (req, res) => res.send('🔥 Tournament Bot is Live!'));
+app.listen(3000, () => console.log('✅ Server Ready on Port 3000'));
+
+// --- 3. BOT SETUP ---
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const FF_COLOR = '#FFAA00'; // Free Fire Gold Color
-const FF_LOGO = 'https://dl.dir.freefiremobile.com/common/web_event/official2.0/images/share_img.jpg'; // Official Logo
 
-const client = new Client({
-    intents: [GatewayIntentBits.Guilds]
-});
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// --- 3. COMMANDS LIST ---
+// --- 4. COMMANDS LIST ---
 const commands = [
-    // Command: Budget
+    // 1. Budget Calculator
     new SlashCommandBuilder()
         .setName('budget')
-        .setDescription('💰 Calculate Prize Pool, Profit & Split')
-        .addNumberOption(opt => opt.setName('entry_fee').setDescription('Entry Fee per Squad').setRequired(true))
-        .addNumberOption(opt => opt.setName('total_teams').setDescription('Total Teams/Slots').setRequired(true))
-        .addNumberOption(opt => opt.setName('prize_percent').setDescription('Prize Pool % (Default 70%)').setRequired(false)),
+        .setDescription('💰 Calculate Prize Pool & Profit')
+        .addNumberOption(o => o.setName('entry').setDescription('Entry Fee').setRequired(true))
+        .addNumberOption(o => o.setName('teams').setDescription('Total Teams').setRequired(true)),
 
-    // Command: Points
+    // 2. Points Calculator
     new SlashCommandBuilder()
         .setName('points')
-        .setDescription('📊 Calculate Team Score (Position + Kills)')
-        .addIntegerOption(opt => opt.setName('rank').setDescription('Team Position (1-12)').setRequired(true))
-        .addIntegerOption(opt => opt.setName('kills').setDescription('Total Kills').setRequired(true)),
+        .setDescription('📊 Calculate Team Score')
+        .addIntegerOption(o => o.setName('rank').setDescription('Rank (1-12)').setRequired(true))
+        .addIntegerOption(o => o.setName('kills').setDescription('Kills').setRequired(true)),
 
-    // Command: Toss (New)
+    // 3. Slot List Maker (NEW)
     new SlashCommandBuilder()
-        .setName('toss')
-        .setDescription('🪙 Flip a coin for map selection or tie-breaker'),
+        .setName('slots')
+        .setDescription('wc Generate empty Slot List for management'),
 
-    // Command: Format (New)
+    // 4. Rules (NEW)
     new SlashCommandBuilder()
-        .setName('format')
-        .setDescription('📝 Get a text format for Team Registration'),
+        .setName('rules')
+        .setDescription('📜 Post Official Tournament Rules'),
 
-    // Command: Help (New)
+    // 5. Payment Info (NEW)
+    new SlashCommandBuilder()
+        .setName('pay')
+        .setDescription('💳 Show UPI/QR for Entry Fee'),
+        
+    // 6. Help
     new SlashCommandBuilder()
         .setName('help')
-        .setDescription('❓ See all available commands')
+        .setDescription('❓ Show all commands')
 ];
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-// --- 4. REGISTER COMMANDS ---
 client.once('ready', async () => {
-    console.log(`🤖 Logged in as ${client.user.tag}!`);
-    try {
-        console.log('🔄 Refreshing commands...');
-        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('✅ Commands Registered Successfully!');
-    } catch (error) {
-        console.error(error);
-    }
+    console.log(`🤖 Logged in as ${client.user.tag}`);
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+    console.log('✅ All Features Loaded!');
 });
 
-// --- 5. HANDLING COMMANDS ---
+// --- 5. COMMAND LOGIC ---
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
-    // --- LOGIC: BUDGET ---
-    if (interaction.commandName === 'budget') {
-        const fee = interaction.options.getNumber('entry_fee');
-        const teams = interaction.options.getNumber('total_teams');
-        const percent = interaction.options.getNumber('prize_percent') || 70;
+    const { commandName } = interaction;
 
-        const totalCollection = fee * teams;
-        const prizePool = (totalCollection * percent) / 100;
-        const profit = totalCollection - prizePool;
+    // --- SLOT LIST COMMAND ---
+    if (commandName === 'slots') {
+        const slotText = `
+**📋 TOURNAMENT SLOT LIST**
+---------------------------
+Slot 1: 
+Slot 2: 
+Slot 3: 
+Slot 4: 
+Slot 5: 
+Slot 6: 
+Slot 7: 
+Slot 8: 
+Slot 9: 
+Slot 10: 
+Slot 11: 
+Slot 12: 
+---------------------------
+*Copy this list and edit team names!*
+        `;
+        await interaction.reply({ content: "Niche diye gaye text ko copy karke Teams ka naam bharein:", ephemeral: true });
+        await interaction.channel.send(`\`\`\`${slotText}\`\`\``);
+    }
 
-        // Auto Split (50% - 30% - 20%)
-        const p1 = Math.floor(prizePool * 0.50);
-        const p2 = Math.floor(prizePool * 0.30);
-        const p3 = Math.floor(prizePool * 0.20);
-
+    // --- RULES COMMAND ---
+    if (commandName === 'rules') {
         const embed = new EmbedBuilder()
-            .setColor(FF_COLOR)
-            .setTitle('💰 Tournament Finance Calculator')
-            .setThumbnail('https://cdn-icons-png.flaticon.com/512/3135/3135706.png') // Money Icon
-            .setDescription(`**Entry Fee:** ₹${fee} | **Teams:** ${teams}`)
+            .setColor('#FF0000') // Red for Alert
+            .setTitle('📜 OFFICIAL TOURNAMENT RULES')
+            .setThumbnail(CONFIG.logo)
             .addFields(
-                { name: '💵 Total Collection', value: `\`₹${totalCollection}\``, inline: true },
-                { name: '🏆 Total Prize Pool', value: `\`₹${prizePool}\``, inline: true },
-                { name: '📈 Organizer Profit', value: `\`₹${profit}\``, inline: true },
-                { name: '\u200B', value: '-----------------------------' }, // Separator
-                { name: '🥇 1st Place (50%)', value: `**₹${p1}**`, inline: true },
-                { name: '🥈 2nd Place (30%)', value: `**₹${p2}**`, inline: true },
-                { name: '🥉 3rd Place (20%)', value: `**₹${p3}**`, inline: true }
+                { name: '1. General', value: '• Map: Bermuda / Purgatory\n• Mode: Squad (4v4)\n• Emulator: **Not Allowed** 🚫' },
+                { name: '2. Scoring', value: '• Booyah = 12 Pts\n• 1 Kill = 1 Pt' },
+                { name: '3. Disqualification', value: '• Teaming up with other squads.\n• Hacking or Glitch using.\n• Abusing in All-Chat.' },
+                { name: '4. Prize Distribution', value: '• Prize will be sent via UPI within 2 hours of match end.' }
             )
-            .setFooter({ text: 'Calculated by FF Manager Bot', iconURL: FF_LOGO })
-            .setTimestamp();
+            .setFooter({ text: 'Follow rules to avoid ban!' });
+        
+        await interaction.reply({ embeds: [embed] });
+    }
+
+    // --- PAYMENT COMMAND ---
+    if (commandName === 'pay') {
+        const embed = new EmbedBuilder()
+            .setColor('#2ecc71') // Green for Money
+            .setTitle('💳 Payment Details')
+            .setDescription('Please pay the entry fee to confirm your slot.')
+            .addFields(
+                { name: 'UPI ID', value: `\`${CONFIG.upi_id}\``, inline: true },
+                { name: 'Scan QR', value: 'Scan below to pay', inline: true }
+            )
+            .setImage(CONFIG.qr_image) // QR Code
+            .setFooter({ text: 'Send screenshot after payment!' });
 
         await interaction.reply({ embeds: [embed] });
     }
 
-    // --- LOGIC: POINTS ---
-    if (interaction.commandName === 'points') {
+    // --- BUDGET COMMAND ---
+    if (commandName === 'budget') {
+        const fee = interaction.options.getNumber('entry');
+        const teams = interaction.options.getNumber('teams');
+        
+        const total = fee * teams;
+        const prize = total * 0.70; // 70% Prize
+        const profit = total - prize; // 30% Profit
+
+        const embed = new EmbedBuilder()
+            .setColor(CONFIG.color)
+            .setTitle('💰 Budget Overview')
+            .addFields(
+                { name: 'Total Collection', value: `₹${total}`, inline: true },
+                { name: 'Prize Pool (70%)', value: `₹${prize}`, inline: true },
+                { name: 'Your Profit', value: `₹${profit}`, inline: true },
+                { name: 'Distribution', value: `🥇 1st: ₹${(prize*0.5).toFixed(0)}\n🥈 2nd: ₹${(prize*0.3).toFixed(0)}\n🥉 3rd: ₹${(prize*0.2).toFixed(0)}` }
+            );
+        await interaction.reply({ embeds: [embed] });
+    }
+
+    // --- POINTS COMMAND ---
+    if (commandName === 'points') {
         const rank = interaction.options.getInteger('rank');
         const kills = interaction.options.getInteger('kills');
-
-        // FF Official Points Table
-        const pointsTable = { 1: 12, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1 };
         
-        let posPts = 0;
-        let titleText = `Rank #${rank}`;
-        let color = '#ffffff'; // Default White
-
-        if (rank === 1) {
-            posPts = 12;
-            titleText = "🏆 BOOYAH! (Rank #1)";
-            color = '#FFD700'; // Gold
-        } else if (rank >= 2 && rank <= 12) {
-            posPts = pointsTable[rank] || 0;
-            color = '#C0C0C0'; // Silver/Grey
-        } else {
-            return interaction.reply({ content: '❌ Invalid Rank! Please enter 1-12.', ephemeral: true });
-        }
-
-        const totalScore = posPts + kills;
+        const ptsMap = { 1:12, 2:9, 3:8, 4:7, 5:6, 6:5, 7:4, 8:3, 9:2, 10:1 };
+        const score = (ptsMap[rank] || 0) + kills;
 
         const embed = new EmbedBuilder()
-            .setColor(color)
-            .setAuthor({ name: 'Match Result Calculator', iconURL: FF_LOGO })
-            .setTitle(titleText)
-            .addFields(
-                { name: '📍 Position Points', value: `${posPts}`, inline: true },
-                { name: '💀 Kill Points', value: `${kills}`, inline: true },
-                { name: '🔥 TOTAL SCORE', value: `__**${totalScore}**__`, inline: true }
-            )
-            .setFooter({ text: 'Official FF Scoring System' });
-
+            .setColor(CONFIG.color)
+            .setTitle(`Rank #${rank} Result`)
+            .setDescription(`Kills: **${kills}** | Total Points: **${score}**`);
+        
         await interaction.reply({ embeds: [embed] });
     }
 
-    // --- LOGIC: TOSS ---
-    if (interaction.commandName === 'toss') {
-        const outcomes = ['Heads', 'Tails'];
-        const result = outcomes[Math.floor(Math.random() * outcomes.length)];
-        
+    // --- HELP COMMAND ---
+    if (commandName === 'help') {
         const embed = new EmbedBuilder()
-            .setColor('#3498db')
-            .setTitle('🪙 Coin Toss')
-            .setDescription(`The coin landed on: **${result.toUpperCase()}**`);
-
-        await interaction.reply({ embeds: [embed] });
-    }
-
-    // --- LOGIC: FORMAT ---
-    if (interaction.commandName === 'format') {
-        const formatText = `
-**📋 TEAM REGISTRATION FORMAT**
------------------------------
-**Team Name:** [Your Team Name]
-**Leader:** [Leader Name + UID]
-**Contact:** [WhatsApp No]
-**Members:**
-1. Player 1 (UID)
-2. Player 2 (UID)
-3. Player 3 (UID)
-4. Player 4 (UID)
-        `;
-        await interaction.reply({ content: "Here is the format to copy:", code: true }); // Sends as code block
-        await interaction.channel.send(formatText);
-    }
-
-    // --- LOGIC: HELP ---
-    if (interaction.commandName === 'help') {
-        const embed = new EmbedBuilder()
-            .setColor(FF_COLOR)
-            .setTitle('🤖 Bot Commands List')
-            .setThumbnail(FF_LOGO)
+            .setColor(CONFIG.color)
+            .setTitle('🤖 Bot Commands')
+            .setDescription('Use these commands to manage your tournament:')
             .addFields(
-                { name: '💰 /budget', value: 'Calculate Profit & Prize distribution' },
-                { name: '📊 /points', value: 'Calculate Total Score from Rank & Kills' },
-                { name: '🪙 /toss', value: 'Flip a coin for tie-breakers' },
-                { name: '📝 /format', value: 'Get Team Registration Format' }
-            )
-            .setFooter({ text: 'Developed for FF Tournaments' });
-
+                { name: '/slots', value: 'Get empty slot list format' },
+                { name: '/rules', value: 'Post tournament rules' },
+                { name: '/pay', value: 'Show UPI/QR for payments' },
+                { name: '/budget', value: 'Calculate money & profit' },
+                { name: '/points', value: 'Calculate team points' }
+            );
         await interaction.reply({ embeds: [embed] });
     }
 });
